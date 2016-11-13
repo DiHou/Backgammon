@@ -233,6 +233,8 @@ module gameLogic {
 		if (board[start].status !== role) {
 			return false;
 		}
+		let myBar = role === BLACK ?  BLACKBAR : WHITEBAR;
+		if (board[myBar].count !== 0 && start !== myBar) return false;
 		let end = getValidPos(start, step, role);
 		if (role === BLACK && end === BLACKHOME && canBearOff(board, BLACK)) {
 			if (start + step > BLACKHOME - 1) {
@@ -266,7 +268,7 @@ module gameLogic {
 			let myHome = role === BLACK ? BLACKHOME : WHITEHOME;
 			if (end === myHome && !canBearOff(board, role)) return false;
 			board[start].count -= 1;
-			if (board[start].count === 0 && start !== BLACKBAR && start !== WHITEBAR) {
+			if (board[start].count === 0 && start !== myBar) {
 				board[start].status = EMPTY;
 			}
 			if (board[end].status !== 1 - role) {
@@ -282,71 +284,100 @@ module gameLogic {
 	}
 
 	/** 
-	 * This function reflects all reachable positions, given starting position.
-	 * From start, all possible moves are assumed from original in order.
-	 * Returns an object, containing reachable Tower tid's as keys, and an array of steps indexes by which to walk from start.
-	 * For example, assuming black and starting from 2, steps[4, 6], returns {6: [0], 8: [1], 12: [1, 0]} 
+	 * This function reflects all reachable positions and how to get there, given starting position.
+	 * Returns an object, containing reachable Tower tid's as keys, and an array of dice indices to walk from start in order.
+	 * For example, assuming black and starting from 2, steps[4, 6], returns {6: [0], 8: [1], 12: [0, 1]}.
+	 * Multiple paths are reduced to save only one path, so that only {12: [0, 1]} instead of updating to {12: [1, 0]}.
 	 */
 	export function startMove(curBoard: Board, curSteps: Steps, start: number, role: number): IEndToStepIndex {
 		let res: IEndToStepIndex = {};
 		let myBar = role === BLACK ? BLACKBAR : WHITEBAR;
-		if ((curBoard[myBar].count !== 0 && start !== myBar) || curSteps.length === 0) {
+		let board: Board;
+		let newStart = start;
+		let prevEnd: number;		
+		if (curSteps.length === 0) {
 			return res;
 		} else if (curSteps.length === 2) {
-			let board: Board;
-			let newStart: number;
 			// 1 -> 2
 			board = angular.copy(curBoard);
-			newStart = start;
-			for (let i = 0; i < curSteps.length; i++) {
+			prevEnd = -1;
+			for (let i = 0; i < 2; i++) {
 				let oldStart = newStart;
 				newStart = getValidPos(oldStart, curSteps[i], role);
 				let modified = modelMove(board, oldStart, curSteps[i], role);
 				if (modified) {
-					//assume an automatic conversion from number to string
+					// Assume an automatic conversion from number to string.
 					if (!res[board[newStart].tid]) {
 						res[board[newStart].tid] = [];
 					}
+					// Add all dice indices along the path prior to the current end point.
+					if (prevEnd !== -1) {
+						for (let s of res[board[prevEnd].tid]) {
+							res[board[newStart].tid].push(s);
+						}
+					}
+					// Add current dice index to the current end point.
 					res[board[newStart].tid].push(i);
+					prevEnd = newStart;
 					if (newStart === BLACKHOME || newStart == WHITEHOME) {
 						break;
 					}
 				}
 			}			
 			// 2 -> 1
+			newStart = start;			
 			board = angular.copy(curBoard);
-			newStart = start;
+			prevEnd = -1;
 			for (let i = curSteps.length - 1; i >= 0; i--) {
 				let oldStart = newStart;
 				newStart = getValidPos(oldStart, curSteps[i], role);
 				let modified = modelMove(board, oldStart, curSteps[i], role);
 				if (modified) {
-					//assume an automatic conversion from number to string
+					// Assume an automatic conversion from number to string
 					if (!res[board[newStart].tid]) {
 						res[board[newStart].tid] = [];
+					} else {
+						// The first path may have covered this end point.
+						// In that case, we choose to skip the same end point with different paths.
+						break;
 					}
+					// Add all dice indices along the path prior to the current end point.
+					if (prevEnd !== -1) {
+						for (let s of res[board[prevEnd].tid]) {
+							res[board[newStart].tid].push(s);
+						}
+					}
+					// Add current dice index to the current end point.
 					res[board[newStart].tid].push(i);
+					prevEnd = newStart;
 					if (newStart === BLACKHOME || newStart == WHITEHOME) {
 						break;
 					}
 				}
 			}
 		} else {
-			let board: Board;
-			let newStart = start;
 			// 1
 			// 1 -> 2 -> 3 [-> 4]
 			board = angular.copy(curBoard);
+			prevEnd = -1;
 			for (let i = 0; i < curSteps.length; i++) {
 				let oldStart = newStart;
 				newStart = getValidPos(oldStart, curSteps[i], role);
 				let modified = modelMove(board, oldStart, curSteps[i], role);
 				if (modified) {
-					//assume an automatic conversion from number to string
+					// Assume an automatic conversion from number to string
 					if (!res[board[newStart].tid]) {
 						res[board[newStart].tid] = [];
 					}
+					// Add all dice indices along the path prior to the current end point.
+					if (prevEnd !== -1) {
+						for (let s of res[board[prevEnd].tid]) {
+							res[board[newStart].tid].push(s);
+						}
+					}
+					// Add current dice index to the current end point.
 					res[board[newStart].tid].push(i);
+					prevEnd = newStart;
 					if (newStart === BLACKHOME || newStart == WHITEHOME) {
 						break;
 					}
@@ -358,10 +389,13 @@ module gameLogic {
 		return res;
 	}
 
+	/**
+	 * This function reacts on the submitClicked to trigger a move to be created.
+	 * Param originalState denotes the state before any mini-moves of this move.
+	 * Param currentState denotes the state modified from the originalState with sequential mini-moves in this move.
+	 * If the game is not over, and the player has completed all mini-moves, and the opponent is not closed out, the player is switched.
+	 */
 	export function createMove(originalState: IState, currentState: IState, turnIndexBeforeMove: number): IMove {
-		// if (!stateBeforeMove) {
-		// 	stateBeforeMove = getInitialState();
-		// }
 		let oldBoard: Board = originalState.board;
 		if (getWinner(oldBoard) !== '') {
 			throw new Error("Can only make a move if the game is not over!");
@@ -397,51 +431,63 @@ module gameLogic {
 	}	
 
 	/**
-	 * This function reacts on the mouse second click or drop event to trigger a mini-move to be created on the current board.
-	 * Param start comes from the mouse first click or drag event, and denotes the starting point of this mini-move.
-	 * Param end comes from the mouse second click or drop event, and denotes the ending point of this mini-move.
-	 * If |end - start| is indeed a valid step, a trial of modelMove is issued which may modify boardAfterMove.
-	 * When no more step available, players are switched.
+	 * This function reacts on the second towerClicked or drop event to trigger a mini-move to be created on the current board.
+	 * Param start comes from the first towerClicked or drag event, and denotes the starting point of this mini-move.
+	 * Param end comes from the second towerClicked or drop event, and denotes the ending point of this mini-move.
+	 * If start-to-end is/are indeed a valid mini-move/s, a trial of modelMove/s is/are issued which may modify boardAfterMove.
+	 * The used dice values are stored in the return array. Successful mini-move/s return/s a non-empty array, otherwise an empty one.
 	 */
-	export function createMiniMove(stateBeforeMove: IState, start: number, end: number, roleBeforeMove: number): boolean {
+	export function createMiniMove(stateBeforeMove: IState, start: number, end: number, roleBeforeMove: number): number[] {
 		// We can assume the stateBeforeMove has been properly initialized with the final board,
 		// while the turns or originalSteps in the current turn may not be initialized (dices not rolled first).
 		let turns = stateBeforeMove.delta.turns;
+		let res: number[] = [];
 		if (!turns) {
 			// throw new Error("You have to roll the dices to start a new turn!");
 			log.info(["You have to roll the dices to start a new turn!"]);
-			return false;
+			return res;
 		} else if (shouldRollDicesAgain(stateBeforeMove, roleBeforeMove)) {
 			// throw new Error("Your opponent is closed out. You can roll the dices to start a new turn again!");
 			log.info(["Your opponent is closed out. You can roll the dices to start a new turn again!"]);
-			return false;
+			return res;
 		} else if (turns[turns.length - 1].currentSteps.length === 0) {
 			// Cannot re-roll the dices, and the current turn is complete, must submit the move.
 			log.info(["All mini-moves complete. Please submit your move!"]);
-			return false;
+			return res;
 		} else {
 			// make a mini-move
 			let curTurn = turns[turns.length - 1];
 			if (getWinner(stateBeforeMove.board) !== "") {
 				log.info(["The game is over. If it's your turn, you can submit this move now!"]);
-				return false;
+				return res;
 			}
 			let posToStep = startMove(stateBeforeMove.board, curTurn.currentSteps, start, roleBeforeMove);
 			if (end in posToStep) {
-				//posToStep[end] is the array of intended steps index, must access first element for the index, hence [0]
-				let index = posToStep[end][0];
-				modelMove(stateBeforeMove.board, start, curTurn.currentSteps[index], roleBeforeMove);
-				curTurn.currentSteps.splice(index, 1);
+				// posToStep[end] is the array of dice indices which form a path, must access in order
+				let indices = posToStep[end]; // possible: [0], [0, 1], [1, 0], [0, 1, 2], [0, 1, 2, 3]
+				let deleteBuffer: IEndToStepIndex = {}; // type is just for auxiliary use
 				if (!curTurn.moves) {
 					curTurn.moves = [];
 				}
-				let oneMiniMove: IMiniMove = {start: start, end: end};
-				curTurn.moves.push(oneMiniMove);
-				return true;
+				let localStart = start;
+				let localEnd: number;
+				for (let index of indices) {
+					modelMove(stateBeforeMove.board, localStart, curTurn.currentSteps[index], roleBeforeMove);
+					localEnd = getValidPos(localStart, curTurn.currentSteps[index], roleBeforeMove);
+					let oneMiniMove: IMiniMove = {start: localStart, end: localEnd};
+					curTurn.moves.push(oneMiniMove);
+					deleteBuffer[index] = [];
+					localStart = localEnd;
+					res.push(curTurn.currentSteps[index]);
+				}
+				for (let i = 3; i >= 0; i--) {
+					if (deleteBuffer[i]) curTurn.currentSteps.splice(i, 1);
+				}
+				return res;
 			} else {
 				//no such value found tossed, not a legal move
 				log.info(["No such move!"]);
-				return false;
+				return res;
 			}
 		}
 	}
