@@ -155,6 +155,7 @@ var gameLogic;
             return "";
         }
     }
+    gameLogic.getWinner = getWinner;
     function getOriginalSteps(currentState, role) {
         var lastTurn = currentState.delta.turns[currentState.delta.turns.length - 1];
         return lastTurn.originalSteps;
@@ -249,9 +250,10 @@ var gameLogic;
      * Unsuccessful mini-move leaves the board unmodified and returns false.
      */
     function modelMove(board, start, step, role) {
-        if (board[start].status !== role) {
+        if (board[start].status !== role)
             return false;
-        }
+        if (board[start].count <= 0)
+            return false;
         var myBar = role === gameLogic.BLACK ? gameLogic.BLACKBAR : gameLogic.WHITEBAR;
         if (board[myBar].count !== 0 && start !== myBar)
             return false;
@@ -321,6 +323,9 @@ var gameLogic;
         var board;
         var newStart = start;
         var prevEnd;
+        // Guard against empty start location. Normally this won't happen, while in AI it tries every possibility.
+        if (curBoard[start].status !== role || curBoard[start].count <= 0)
+            return res;
         if (curSteps.length === 0) {
             return res;
         }
@@ -457,6 +462,10 @@ var gameLogic;
         }
         else if (lastTurn.currentSteps.length !== 0 && moveExist(currentState, turnIndexBeforeMove)) {
             // Game continues. You should complete all available mini-moves within your turn.
+            log.info(["Last turn:", lastTurn]);
+            log.info(["turnIndexBeforeMove: ", turnIndexBeforeMove]);
+            log.info(["currentState: ", currentState]);
+            // There is an unrepeatable bug here. Sometimes AI will go to this path, or maybe I just misclicked? No idea.
             throw new Error("You should complete all available mini-moves within your turn.");
         }
         else {
@@ -520,7 +529,7 @@ var gameLogic;
                     modelMove(stateBeforeMove.board, localStart, curTurn.currentSteps[index], roleBeforeMove);
                     localEnd = getValidPos(localStart, curTurn.currentSteps[index], roleBeforeMove);
                     var oneMiniMove = { start: localStart, end: localEnd };
-                    log.info(["Create a mini-move between: ", localStart, localEnd]);
+                    log.info(["Create a mini-move between:", "start", localStart, "end", localEnd]);
                     curTurn.moves.push(oneMiniMove);
                     deleteBuffer[index] = [];
                     localStart = localEnd;
@@ -534,7 +543,7 @@ var gameLogic;
             }
             else {
                 //no such value found tossed, not a legal move
-                log.warn(["No such move!"]);
+                // log.warn(["No such move!"]);
                 return res;
             }
         }
@@ -559,6 +568,7 @@ var gameLogic;
             return false;
         }
     }
+    gameLogic.shouldRollDicesAgain = shouldRollDicesAgain;
     /**
      * This functions checks whether a mini-move is possible,
      * given current board, role and remaining steps.
@@ -587,17 +597,17 @@ var gameLogic;
         var moves = null;
         if (board[myBar].count !== 0) {
             moves = startMove(board, stepCombination, myBar, role);
-            if (angular.equals(moves, {})) {
-                return false;
-            }
+            return !angular.equals(moves, {});
         }
-        for (var i = 2; i < 26; i++) {
-            moves = startMove(board, stepCombination, i, role);
-            if (!angular.equals(moves, {})) {
-                return true;
+        else {
+            for (var i = 2; i < 26; i++) {
+                moves = startMove(board, stepCombination, i, role);
+                if (!angular.equals(moves, {})) {
+                    return true;
+                }
             }
+            return false;
         }
-        return false;
     }
     gameLogic.moveExist = moveExist;
     function createInitialMove() {

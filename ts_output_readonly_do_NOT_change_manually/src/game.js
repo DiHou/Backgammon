@@ -4,7 +4,7 @@ var game;
     game.debug = 0; //0: normal, 1: bear off, ...
     game.currentUpdateUI = null;
     game.didMakeMove = false; // You can only make one move per updateUI
-    // export let animationEndedTimeout: ng.IPromise<any> = null;
+    game.animationEndedTimeout = null;
     game.originalState = null;
     game.currentState = null;
     game.moveStart = -1;
@@ -47,7 +47,7 @@ var game;
     function updateUI(params) {
         log.info("Game got updateUI:", params);
         game.didMakeMove = false; // Only one move per updateUI
-        game.currentState = null; // reset
+        // currentState = null; // reset
         game.currentUpdateUI = params;
         clearAnimationTimeout();
         game.originalState = params.move.stateAfterMove;
@@ -64,6 +64,12 @@ var game;
         }
         else {
             game.currentState.board = angular.copy(game.originalState.board);
+            // maybe we want to show the original steps by the opponent first
+            // some animation on the originalState.delta.originalSteps needed
+            // We calculate the AI move only after the animation finishes,
+            // because if we call aiService now
+            // then the animation will be paused until the javascript finishes.
+            game.animationEndedTimeout = $timeout(animationEndedCallback, 500);
         }
     }
     game.updateUI = updateUI;
@@ -81,7 +87,10 @@ var game;
     function maybeSendComputerMove() {
         if (!isComputerTurn())
             return;
-        var move = aiService.findComputerMove(game.currentUpdateUI.move);
+        if (game.currentUpdateUI.move.turnIndexAfterMove === -1)
+            return;
+        var move = aiService.findComputerMove(game.currentUpdateUI.move, game.currentState);
+        //showOriginalSteps(originalState.delta.turns[0].originalSteps); // need further work    
         log.info("Computer move: ", move);
         makeMove(move);
     }
@@ -117,6 +126,8 @@ var game;
             return;
         }
         if (!isHumanTurn())
+            return;
+        if (!game.currentState.delta)
             return;
         if (window.location.search === '?throwException') {
             throw new Error("Throwing the error because URL has '?throwException'");
@@ -217,18 +228,7 @@ var game;
             setDiceStatus(true);
             gameLogic.setOriginalSteps(game.currentState, game.currentUpdateUI.move.turnIndexAfterMove);
             var originalSteps = gameLogic.getOriginalSteps(game.currentState, game.currentUpdateUI.move.turnIndexAfterMove);
-            if (originalSteps.length === 2) {
-                game.showSteps[0] = 0;
-                game.showSteps[1] = originalSteps[0];
-                game.showSteps[2] = originalSteps[1];
-                game.showSteps[3] = 0;
-            }
-            else {
-                game.showSteps[0] = originalSteps[0];
-                game.showSteps[1] = originalSteps[1];
-                game.showSteps[2] = originalSteps[2];
-                game.showSteps[3] = originalSteps[3];
-            }
+            showOriginalSteps(originalSteps);
             log.info(["Dices rolled: ", game.showSteps]);
             resetGrayToNormal(game.showStepsControl);
             game.rollingEndedTimeout = $timeout(rollingEndedCallback, 500);
@@ -239,6 +239,20 @@ var game;
         }
     }
     game.rollClicked = rollClicked;
+    function showOriginalSteps(steps) {
+        if (steps.length === 2) {
+            game.showSteps[0] = 0;
+            game.showSteps[1] = steps[0];
+            game.showSteps[2] = steps[1];
+            game.showSteps[3] = 0;
+        }
+        else {
+            game.showSteps[0] = steps[0];
+            game.showSteps[1] = steps[1];
+            game.showSteps[2] = steps[2];
+            game.showSteps[3] = steps[3];
+        }
+    }
     function rollingEndedCallback() {
         log.info("Rolling ended");
         setDiceStatus(false);

@@ -11,7 +11,7 @@ module game {
   export let debug: number = 0; //0: normal, 1: bear off, ...
   export let currentUpdateUI: IUpdateUI = null;
   export let didMakeMove: boolean = false; // You can only make one move per updateUI
-  // export let animationEndedTimeout: ng.IPromise<any> = null;
+  export let animationEndedTimeout: ng.IPromise<any> = null;
   export let originalState: IState = null;
   export let currentState: IState = null;
   export let moveStart = -1;
@@ -57,7 +57,7 @@ module game {
   export function updateUI(params: IUpdateUI): void {
     log.info("Game got updateUI:", params);
     didMakeMove = false; // Only one move per updateUI
-    currentState = null; // reset
+    // currentState = null; // reset
     currentUpdateUI = params;
     clearAnimationTimeout();
     originalState = params.move.stateAfterMove;
@@ -79,7 +79,7 @@ module game {
       // We calculate the AI move only after the animation finishes,
       // because if we call aiService now
       // then the animation will be paused until the javascript finishes.
-      // animationEndedTimeout = $timeout(animationEndedCallback, 500);
+      animationEndedTimeout = $timeout(animationEndedCallback, 500);
     }
   }
 
@@ -98,7 +98,9 @@ module game {
 
   function maybeSendComputerMove() {
     if (!isComputerTurn()) return;
-    let move = aiService.findComputerMove(currentUpdateUI.move);
+    if (currentUpdateUI.move.turnIndexAfterMove === -1) return;
+    let move = aiService.findComputerMove(currentUpdateUI.move, currentState);
+    //showOriginalSteps(originalState.delta.turns[0].originalSteps); // need further work    
     log.info("Computer move: ", move);
     makeMove(move);
   }
@@ -142,6 +144,7 @@ module game {
       return;
     }
     if (!isHumanTurn()) return;
+    if (!currentState.delta) return;
     if (window.location.search === '?throwException') { // to test encoding a stack trace with sourcemap
       throw new Error("Throwing the error because URL has '?throwException'");
     }
@@ -237,17 +240,7 @@ module game {
       setDiceStatus(true);    
       gameLogic.setOriginalSteps(currentState, currentUpdateUI.move.turnIndexAfterMove);
       let originalSteps = gameLogic.getOriginalSteps(currentState, currentUpdateUI.move.turnIndexAfterMove);
-      if (originalSteps.length === 2) {
-        showSteps[0] = 0;
-        showSteps[1] = originalSteps[0];
-        showSteps[2] = originalSteps[1];
-        showSteps[3] = 0;
-      } else { // 4
-        showSteps[0] = originalSteps[0];
-        showSteps[1] = originalSteps[1];
-        showSteps[2] = originalSteps[2];
-        showSteps[3] = originalSteps[3];
-      }
+      showOriginalSteps(originalSteps);
       log.info(["Dices rolled: ", showSteps]);
       resetGrayToNormal(showStepsControl);        
       rollingEndedTimeout = $timeout(rollingEndedCallback, 500);
@@ -255,6 +248,20 @@ module game {
       log.warn(e);
       setDiceStatus(false);
     }
+  }
+
+  function showOriginalSteps(steps: number[]): void {
+      if (steps.length === 2) {
+        showSteps[0] = 0;
+        showSteps[1] = steps[0];
+        showSteps[2] = steps[1];
+        showSteps[3] = 0;
+      } else { // 4
+        showSteps[0] = steps[0];
+        showSteps[1] = steps[1];
+        showSteps[2] = steps[2];
+        showSteps[3] = steps[3];
+      }
   }
 
   function rollingEndedCallback() {
