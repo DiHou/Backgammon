@@ -239,15 +239,6 @@ module game {
     didMakeMove = true;
     if (!proposals) {
       moveService.makeMove(move);
-    } else {
-      let myProposal: IProposal = {
-        data: {
-          moves: currentState.delta.turns[0].moves,
-        },
-        chatDescription: '',
-        playerInfo: yourPlayerInfo,
-      }
-      moveService.communityMove(myProposal, move);
     }
   }
 
