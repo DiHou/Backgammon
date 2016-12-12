@@ -83,7 +83,6 @@ var gameLogic;
         }
         return board;
     }
-    gameLogic.getInitialBoard = getInitialBoard;
     /** Returns the preconfigured bear off board. */
     function getBearOffBoard() {
         var board = Array(27);
@@ -110,7 +109,6 @@ var gameLogic;
         }
         return board;
     }
-    gameLogic.getBearOffBoard = getBearOffBoard;
     function getInitialState() {
         return { board: getInitialBoard(), delta: null };
     }
@@ -441,9 +439,6 @@ var gameLogic;
      * If the game is not over, and the player has completed all mini-moves, and the opponent is not closed out, the player is switched.
      */
     function createMove(originalState, currentState, turnIndexBeforeMove) {
-        if (!originalState) {
-            originalState = getInitialState();
-        }
         var oldBoard = originalState.board;
         if (getWinner(oldBoard) !== '') {
             throw new Error("Can only make a move if the game is not over!");
@@ -467,9 +462,9 @@ var gameLogic;
         }
         else if (lastTurn.currentSteps.length !== 0 && moveExist(currentState, turnIndexBeforeMove)) {
             // Game continues. You should complete all available mini-moves within your turn.
-            // log.info(["Last turn:", lastTurn]);
-            // log.info(["turnIndexBeforeMove: ", turnIndexBeforeMove]);
-            // log.info(["currentState: ", currentState]);
+            log.info(["Last turn:", lastTurn]);
+            log.info(["turnIndexBeforeMove: ", turnIndexBeforeMove]);
+            log.info(["currentState: ", currentState]);
             // There is an unrepeatable bug here. Sometimes AI will go to this path, or maybe I just misclicked? No idea.
             throw new Error("You should complete all available mini-moves within your turn.");
         }
@@ -587,6 +582,11 @@ var gameLogic;
         var last = state.delta.turns.length - 1;
         var currentSteps = state.delta.turns[last].currentSteps;
         var stepCombination = [];
+        var bearTime = canBearOff(board, role);
+        // valid move always exists when bearoff time
+        if (bearTime) {
+            return true;
+        }
         //for the purpose of this function, stepCombination contains at most two numbers
         stepCombination.push(currentSteps[0]); // first element is always included
         // if different, include the second element
@@ -638,10 +638,7 @@ var gameLogic;
             if (turn.moves) {
                 for (var _b = 0, _c = turn.moves; _b < _c.length; _b++) {
                     var move_1 = _c[_b];
-                    var usedValues = createMiniMove(tmpState, move_1.start, move_1.end, turnIndexBeforeMove);
-                    if (usedValues.length === 0) {
-                        throw new Error("Expected mini-move failed at " + angular.toJson(move_1, true));
-                    }
+                    createMiniMove(tmpState, move_1.start, move_1.end, turnIndexBeforeMove);
                 }
             }
         }
@@ -672,10 +669,7 @@ var gameLogic;
             if (turn.moves) {
                 for (var _b = 0, _c = turn.moves; _b < _c.length; _b++) {
                     var move_2 = _c[_b];
-                    var usedValues = createMiniMove(tmpState, move_2.start, move_2.end, turnIndexBeforeMove);
-                    if (usedValues.length === 0) {
-                        throw new Error("Expected mini-move failed at " + angular.toJson(move_2, true));
-                    }
+                    createMiniMove(tmpState, move_2.start, move_2.end, turnIndexBeforeMove);
                 }
             }
         }

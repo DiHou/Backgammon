@@ -72,7 +72,7 @@ module gameLogic {
 	//2, 13, 18, 20 black
 	//7, 9, 14, 25 white
 	/** Returns the initial board. */
-	export function getInitialBoard(): Board {
+	function getInitialBoard(): Board {
 		let board: Board = Array(27);
 		for (let i = 0; i < 28; i++) {
 			if (i === WHITEHOME || i === WHITEBAR) {
@@ -103,7 +103,7 @@ module gameLogic {
 	}
 
 	/** Returns the preconfigured bear off board. */
-	export function getBearOffBoard(): Board {
+	function getBearOffBoard(): Board {
 		let board: Board = Array(27);
 		for (let i = 0; i < 28; i++) {
 			if (i === WHITEHOME || i === WHITEBAR) {
@@ -429,9 +429,6 @@ module gameLogic {
 	 * If the game is not over, and the player has completed all mini-moves, and the opponent is not closed out, the player is switched.
 	 */
 	export function createMove(originalState: IState, currentState: IState, turnIndexBeforeMove: number): IMove {
-		if (!originalState) {
-			originalState = getInitialState();
-		}
 		let oldBoard: Board = originalState.board;
 		if (getWinner(oldBoard) !== '') {
 			throw new Error("Can only make a move if the game is not over!");
@@ -453,9 +450,9 @@ module gameLogic {
 			throw new Error("Your opponent is closed out. You should roll the dices again to start a new turn directly.");
 		} else if (lastTurn.currentSteps.length !== 0 && moveExist(currentState, turnIndexBeforeMove)) {
 			// Game continues. You should complete all available mini-moves within your turn.
-			// log.info(["Last turn:", lastTurn]);
-			// log.info(["turnIndexBeforeMove: ", turnIndexBeforeMove]);
-			// log.info(["currentState: ", currentState]);
+			log.info(["Last turn:", lastTurn]);
+			log.info(["turnIndexBeforeMove: ", turnIndexBeforeMove]);
+			log.info(["currentState: ", currentState]);
 			// There is an unrepeatable bug here. Sometimes AI will go to this path, or maybe I just misclicked? No idea.
 			throw new Error("You should complete all available mini-moves within your turn.");
 		} else {
@@ -564,6 +561,11 @@ module gameLogic {
 		let last = state.delta.turns.length - 1;
 		let currentSteps = state.delta.turns[last].currentSteps;
 		let stepCombination: number[] = [];
+		let bearTime: boolean = canBearOff(board, role);
+		// valid move always exists when bearoff time
+		if (bearTime) {
+			return true;
+		}
 		//for the purpose of this function, stepCombination contains at most two numbers
 		stepCombination.push(currentSteps[0]); // first element is always included
 		// if different, include the second element
@@ -612,10 +614,7 @@ module gameLogic {
 			// this check needed if the player is completely closed out so moves is null			
 			if (turn.moves) { 
 				for (let move of turn.moves) {
-					let usedValues = createMiniMove(tmpState, move.start, move.end, turnIndexBeforeMove);
-					if (usedValues.length === 0) {
-						throw new Error("Expected mini-move failed at " + angular.toJson(move, true));
-					}
+					createMiniMove(tmpState, move.start, move.end, turnIndexBeforeMove);
 				}
 			}
 		}
@@ -644,10 +643,7 @@ module gameLogic {
 			// this check needed if the player is completely closed out so moves is null			
 			if (turn.moves) { 
 				for (let move of turn.moves) {
-					let usedValues = createMiniMove(tmpState, move.start, move.end, turnIndexBeforeMove);
-					if (usedValues.length === 0) {
-						throw new Error("Expected mini-move failed at " + angular.toJson(move, true));
-					}
+					createMiniMove(tmpState, move.start, move.end, turnIndexBeforeMove);
 				}
 			}
 		}
