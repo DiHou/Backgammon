@@ -32,8 +32,6 @@ var game;
             updateUI: updateUI,
             gotMessageFromPlatform: null,
         });
-        game.showSteps = [0, 0, 0, 0];
-        game.showStepsControl = [true, true, true, true];
     }
     game.init = init;
     function registerServiceWorker() {
@@ -113,11 +111,21 @@ var game;
             game.recRollingEndedTimeout = null;
         }
     }
+    function resetDefaultParameters() {
+        game.didMakeMove = false; // Only one move per updateUI
+        game.originalState = null;
+        game.currentState = { board: null, delta: null };
+        game.showSteps = [0, 0, 0, 0];
+        game.showStepsControl = [true, true, true, true];
+        game.targets = [];
+        game.rolling = false;
+        game.moveStart = -1;
+        game.moveEnd = -1;
+    }
     function updateUI(params) {
         log.info("Game got updateUI:", params);
-        game.didMakeMove = false; // Only one move per updateUI
+        resetDefaultParameters();
         game.currentUpdateUI = params;
-        game.originalState = null;
         var shouldAnimate = !game.lastHumanMove || !angular.equals(params.move.stateAfterMove, game.lastHumanMove.stateAfterMove);
         clearTurnAnimationInterval();
         if (isFirstMove()) {
@@ -142,7 +150,6 @@ var game;
                 game.currentState.board = angular.copy(params.stateBeforeMove.board);
             }
             game.currentState.delta = null;
-            // currentState = {board: angular.copy(params.stateBeforeMove.board), delta: null};
             if (params.move.stateAfterMove.delta) {
                 game.remainingTurns = angular.copy(params.move.stateAfterMove.delta.turns);
             }
@@ -314,6 +321,7 @@ var game;
     }
     function rollingEndedCallback() {
         log.info("Rolling ended");
+        clearRollingAnimationTimeout();
         game.rolling = false;
     }
     function resetGrayToNormal(ssc) {

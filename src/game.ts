@@ -40,8 +40,6 @@ module game {
       updateUI: updateUI,
       gotMessageFromPlatform: null,
     });
-    showSteps = [0, 0, 0, 0];
-    showStepsControl = [true, true, true, true];
   }
 
   function registerServiceWorker() {
@@ -131,11 +129,22 @@ module game {
     }
   }
 
+  function resetDefaultParameters(): void {
+    didMakeMove = false; // Only one move per updateUI
+    originalState = null;
+    currentState = {board: null, delta: null};
+    showSteps = [0, 0, 0, 0];
+    showStepsControl = [true, true, true, true];
+    targets = [];
+    rolling = false;
+    moveStart = -1;
+    moveEnd = -1;
+  }
+
   export function updateUI(params: IUpdateUI): void {
     log.info("Game got updateUI:", params);
-    didMakeMove = false; // Only one move per updateUI
+    resetDefaultParameters();
     currentUpdateUI = params;
-    originalState = null;    
     let shouldAnimate = !lastHumanMove || !angular.equals(params.move.stateAfterMove, lastHumanMove.stateAfterMove);
     clearTurnAnimationInterval();
     if (isFirstMove()) {
@@ -157,7 +166,6 @@ module game {
         currentState.board = angular.copy(params.stateBeforeMove.board);
       }
       currentState.delta = null;
-      // currentState = {board: angular.copy(params.stateBeforeMove.board), delta: null};
       if (params.move.stateAfterMove.delta) {
         remainingTurns = angular.copy(params.move.stateAfterMove.delta.turns);
       }
@@ -328,6 +336,7 @@ module game {
 
   function rollingEndedCallback() {
     log.info("Rolling ended");
+    clearRollingAnimationTimeout();
     rolling = false;
   }
 

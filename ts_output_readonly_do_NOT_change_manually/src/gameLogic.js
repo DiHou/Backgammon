@@ -20,17 +20,6 @@ var DieCombo;
         }
     }
     DieCombo.generate = generate;
-    function init() {
-        var die1 = Math.floor(Math.random() * 6 + 1);
-        var die2 = Math.floor(Math.random() * 6 + 1);
-        while (die1 === die2) {
-            //have to regenerate two dies together for fairness issue
-            die1 = Math.floor(Math.random() * 6 + 1);
-            die2 = Math.floor(Math.random() * 6 + 1);
-        }
-        return [die1, die2];
-    }
-    DieCombo.init = init;
 })(DieCombo || (DieCombo = {}));
 var gameLogic;
 (function (gameLogic) {
@@ -626,7 +615,7 @@ var gameLogic;
         return { endMatchScores: null, turnIndexAfterMove: 0, stateAfterMove: getBearOffState() };
     }
     gameLogic.createInitialBearMove = createInitialBearMove;
-    function checkMoveOk(stateTransition) {
+    function checkMoveOk(stateTransition, testDelta) {
         // We can assume that turnIndexBeforeMove and stateBeforeMove are legal, and we need
         // to verify that the move is OK.
         var turnIndexBeforeMove = stateTransition.turnIndexBeforeMove;
@@ -638,7 +627,7 @@ var gameLogic;
         }
         var delta = move.stateAfterMove.delta;
         var expectedMove = null;
-        var tmpState = { board: angular.copy(stateBeforeMove.board), delta: null };
+        var tmpState = { board: angular.copy(stateBeforeMove.board), delta: testDelta };
         for (var _i = 0, _a = delta.turns; _i < _a.length; _i++) {
             var turn = _a[_i];
             setOriginalStepsWithDefault(tmpState, turnIndexBeforeMove, turn.originalSteps);
